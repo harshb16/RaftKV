@@ -1,0 +1,4 @@
+/bin/
+/run/
+*.prof
+coverage.out
