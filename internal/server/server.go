@@ -79,6 +79,12 @@ func (s *Server) serve(c net.Conn) {
 			} else {
 				result = statemachine.Error("ERR wrong number of arguments for PING")
 			}
+		} else if len(a) > 0 && strings.EqualFold(a[0], "ECHO") {
+			if len(a) == 2 {
+				result = statemachine.Bulk(a[1])
+			} else {
+				result = statemachine.Error("ERR wrong number of arguments for ECHO")
+			}
 		} else {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			result, e = s.exec.Execute(ctx, cmd)

@@ -12,9 +12,16 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 RUN = ROOT / 'run'
+NODES = 3
 
 def configs():
-    return [json.loads(p.read_text()) for p in sorted((ROOT / 'configs').glob('node*.json'))]
+    directory = ROOT / 'configs' / ('five' if NODES == 5 else '')
+    out = []
+    for p in sorted(directory.glob('node*.json')):
+        c = json.loads(p.read_text())
+        c['_config'] = str(p.relative_to(ROOT))
+        out.append(c)
+    return out
 
 def status(c):
     try:
@@ -34,12 +41,12 @@ def leader(timeout=8, excluded=None):
     raise RuntimeError('no leader before deadline')
 
 def start_node(c):
-    RUN.mkdir(exist_ok=True)
+    RUN.mkdir(parents=True, exist_ok=True)
     pidfile = RUN / (c['node_id'] + '.pid')
     if status(c):
         return
     with open(RUN / (c['node_id'] + '.log'), 'ab') as log:
-        p = subprocess.Popen([str(ROOT / 'bin/raftkv'), '-config', 'configs/' + c['node_id'] + '.json'], stdout=log, stderr=log, start_new_session=True)
+        p = subprocess.Popen([str(ROOT / 'bin/raftkv'), '-config', c['_config']], stdout=log, stderr=log, start_new_session=True)
     pidfile.write_text(str(p.pid))
     time.sleep(.1)
     if p.poll() is not None:
@@ -52,7 +59,7 @@ def kill_node(c, abrupt=False):
     pid = int(pidfile.read_text())
     # Guard against a stale PID file referring to an unrelated process.
     command = subprocess.run(['ps', '-p', str(pid), '-o', 'command='], capture_output=True, text=True).stdout
-    if str(ROOT / 'bin/raftkv') in command and 'configs/' + c['node_id'] + '.json' in command:
+    if str(ROOT / 'bin/raftkv') in command and c['_config'] in command:
         os.kill(pid, signal.SIGKILL if abrupt else signal.SIGTERM)
     pidfile.unlink(missing_ok=True)
     end = time.monotonic() + 5
@@ -96,13 +103,17 @@ def demo():
     start_node(old)
     states = converge()
     print('converged at index', states[0]['commit'], 'state SHA256', states[0]['state_hash'])
-    subprocess.run([str(ROOT / 'bin/raftkv'), 'status'], check=True)
+    subprocess.run([str(ROOT / 'bin/raftkv'), 'status', '-config', configs()[0]['_config']], check=True)
     print('Cluster remains running. Stop with: make stop')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['start', 'stop', 'leader', 'demo', 'converge'])
+    parser.add_argument('--nodes', type=int, choices=[3, 5], default=3)
     args = parser.parse_args()
+    NODES = args.nodes
+    if NODES == 5:
+        RUN = RUN / 'five'
     if args.action == 'start':
         for c in configs():
             start_node(c)

@@ -90,7 +90,7 @@ func Chaos(c *Cluster, duration time.Duration, clients int, seed int64, log func
 			if l := c.Leader(""); l != nil {
 				s := l.Status()
 				leader := fmt.Sprintf("%s term=%d", s.ID, s.Term)
-				if leader != lastLeader {
+				if s.Role == "leader" && leader != lastLeader {
 					log("leader=" + leader)
 					lastLeader = leader
 				}

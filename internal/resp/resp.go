@@ -30,12 +30,18 @@ func line(r *bufio.Reader) (string, error) {
 	}
 }
 func ReadCommand(r *bufio.Reader) (statemachine.Command, error) {
-	s, err := line(r)
-	if err != nil {
-		return statemachine.Command{}, err
-	}
-	if len(s) == 0 {
-		return statemachine.Command{}, fmt.Errorf("empty command")
+	var s string
+	var err error
+	// Redis ignores blank separators; redis-cli --pipe prefixes its ECHO probe
+	// with one so it also works after inline input without a final newline.
+	for {
+		s, err = line(r)
+		if err != nil {
+			return statemachine.Command{}, err
+		}
+		if len(s) > 0 {
+			break
+		}
 	}
 	if s[0] != '*' {
 		return statemachine.Command{Args: strings.Fields(s)}, nil

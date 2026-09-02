@@ -89,4 +89,7 @@ func TestRealRESPCluster(t *testing.T) {
 	if r := call(leader.cfg.ClientAddr, "PING"); r.Text != "PONG" {
 		t.Fatal(r)
 	}
+	if r := call(leader.cfg.ClientAddr, "ECHO", "\x00\xff\r\n"); r.Text != "\x00\xff\r\n" || r.Kind != "bulk" {
+		t.Fatal(r)
+	}
 }

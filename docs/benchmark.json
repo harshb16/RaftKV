@@ -1,0 +1,121 @@
+{
+  "go": "go1.27.1",
+  "platform": "darwin/arm64",
+  "transport": "in-process fault transport, durable WAL fsync",
+  "results": [
+    {
+      "nodes": 3,
+      "clients": 1,
+      "operation": "SET",
+      "completed": 300,
+      "errors": 0,
+      "seconds": 7.577005292,
+      "ops_per_second": 39.593479011654885,
+      "p50_ms": 24.949625,
+      "p95_ms": 31.106,
+      "p99_ms": 48.773792
+    },
+    {
+      "nodes": 3,
+      "clients": 1,
+      "operation": "GET",
+      "completed": 300,
+      "errors": 0,
+      "seconds": 7.711908583,
+      "ops_per_second": 38.90087606345787,
+      "p50_ms": 25.016708,
+      "p95_ms": 33.435833,
+      "p99_ms": 51.464334
+    },
+    {
+      "nodes": 3,
+      "clients": 8,
+      "operation": "SET",
+      "completed": 300,
+      "errors": 0,
+      "seconds": 2.7055582080000002,
+      "ops_per_second": 110.8828481726755,
+      "p50_ms": 69.042583,
+      "p95_ms": 98.942417,
+      "p99_ms": 115.177667
+    },
+    {
+      "nodes": 3,
+      "clients": 8,
+      "operation": "GET",
+      "completed": 300,
+      "errors": 0,
+      "seconds": 2.734834375,
+      "ops_per_second": 109.69585681034157,
+      "p50_ms": 70.889667,
+      "p95_ms": 107.998166,
+      "p99_ms": 119.333833
+    },
+    {
+      "nodes": 5,
+      "clients": 1,
+      "operation": "SET",
+      "completed": 300,
+      "errors": 0,
+      "seconds": 11.001788083,
+      "ops_per_second": 27.26829472961409,
+      "p50_ms": 34.98725,
+      "p95_ms": 51.342625,
+      "p99_ms": 73.090292
+    },
+    {
+      "nodes": 5,
+      "clients": 1,
+      "operation": "GET",
+      "completed": 300,
+      "errors": 0,
+      "seconds": 11.305063458,
+      "ops_per_second": 26.53678160361902,
+      "p50_ms": 36.790792,
+      "p95_ms": 48.850417,
+      "p99_ms": 88.000125
+    },
+    {
+      "nodes": 5,
+      "clients": 8,
+      "operation": "SET",
+      "completed": 300,
+      "errors": 0,
+      "seconds": 3.760797459,
+      "ops_per_second": 79.77031554360025,
+      "p50_ms": 93.88275,
+      "p95_ms": 141.311042,
+      "p99_ms": 158.600875
+    },
+    {
+      "nodes": 5,
+      "clients": 8,
+      "operation": "GET",
+      "completed": 300,
+      "errors": 0,
+      "seconds": 3.805433583,
+      "ops_per_second": 78.83464353186689,
+      "p50_ms": 89.981625,
+      "p95_ms": 146.030125,
+      "p99_ms": 163.911209
+    }
+  ],
+  "recovery": [
+    {
+      "nodes": 3,
+      "failover_ms": 303.377125,
+      "log_replay_ms": 30.598125,
+      "snapshot_ms": 46.994083,
+      "replay_snapshot_used": false,
+      "snapshot_used": true
+    },
+    {
+      "nodes": 5,
+      "failover_ms": 299.998958,
+      "log_replay_ms": 31.294708,
+      "snapshot_ms": 43.002375,
+      "replay_snapshot_used": false,
+      "snapshot_used": true
+    }
+  ]
+}

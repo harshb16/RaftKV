@@ -39,3 +39,11 @@ func TestResultRoundTrip(t *testing.T) {
 		t.Fatal(got, e)
 	}
 }
+
+func TestBlankSeparatorBeforePipelineProbe(t *testing.T) {
+	r := bufio.NewReader(bytes.NewBufferString("\r\n\r\n*2\r\n$4\r\nECHO\r\n$2\r\nok\r\n"))
+	c, e := ReadCommand(r)
+	if e != nil || len(c.Args) != 2 || c.Args[0] != "ECHO" || c.Args[1] != "ok" {
+		t.Fatal(c, e)
+	}
+}

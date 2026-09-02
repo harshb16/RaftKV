@@ -2,3 +2,5 @@
 /run/
 *.prof
 coverage.out
+
+__pycache__/
