@@ -3,6 +3,7 @@ package raft
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"raftkv/internal/statemachine"
 	"sync"
 	"time"
@@ -93,6 +94,7 @@ type Transport interface {
 	Snapshot(context.Context, string, string, SnapshotRequest) (SnapshotResponse, error)
 }
 type Config struct {
+	Logger            *slog.Logger
 	ID                string
 	Peers             []string
 	ElectionMin       time.Duration
@@ -103,6 +105,7 @@ type Config struct {
 	Seed              int64
 }
 type Status struct {
+	StateHash     string            `json:"state_hash"`
 	ID            string            `json:"id"`
 	Role          string            `json:"role"`
 	Term          uint64            `json:"term"`

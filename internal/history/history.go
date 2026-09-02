@@ -41,7 +41,7 @@ func (r *Recorder) Add(client int, c statemachine.Command, call int64, result st
 	o := Output{Result: result}
 	if err != nil {
 		o.Error = err.Error()
-		o.Rejected = strings.HasPrefix(o.Error, "MOVED") || strings.HasPrefix(o.Error, "CLUSTERDOWN node stopped")
+		o.Rejected = strings.HasPrefix(o.Error, "MOVED")
 		o.Unknown = !o.Rejected
 	}
 	r.mu.Lock()

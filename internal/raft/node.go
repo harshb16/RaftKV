@@ -4,6 +4,7 @@ package raft
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -165,6 +166,9 @@ func (n *Node) persist(compact bool) bool {
 		e = n.store.Save(encode(n.d))
 	}
 	if e != nil {
+		if n.cfg.Logger != nil {
+			n.cfg.Logger.Error("storage failure", "node", n.cfg.ID, "error", e)
+		}
 		n.fatal = e
 		n.stopped = true
 		n.cancel()
@@ -183,6 +187,9 @@ func (n *Node) stepDown(term uint64, leader string) bool {
 	}
 	if n.role != "follower" {
 		n.failPending(fmt.Errorf("TRYAGAIN leadership changed; outcome may be unknown"))
+	}
+	if n.cfg.Logger != nil && (n.role != "follower" || n.leader != leader) {
+		n.cfg.Logger.Info("became follower", "node", n.cfg.ID, "term", n.d.Term, "leader", leader)
 	}
 	n.role = "follower"
 	n.leader = leader
@@ -265,6 +272,9 @@ func (n *Node) elect() {
 }
 func (n *Node) becomeLeader() {
 	n.role = "leader"
+	if n.cfg.Logger != nil {
+		n.cfg.Logger.Info("became leader", "node", n.cfg.ID, "term", n.d.Term)
+	}
 	n.leader = n.cfg.ID
 	for _, p := range n.cfg.Peers {
 		n.next[p] = n.last() + 1
@@ -516,7 +526,9 @@ func (n *Node) Execute(ctx context.Context, c statemachine.Command) (statemachin
 		return o.result, o.err
 	case <-ctx.Done():
 		n.mu.Lock()
-		delete(n.pending, i)
+		if n.pending[i] == ch {
+			delete(n.pending, i)
+		}
 		n.mu.Unlock()
 		return statemachine.Result{}, fmt.Errorf("TRYAGAIN deadline exceeded; outcome may be unknown")
 	}
@@ -532,7 +544,7 @@ func (n *Node) Status() Status {
 			}
 		}
 	}
-	s := Status{ID: n.cfg.ID, Role: n.role, Term: n.d.Term, Leader: n.leader, Commit: n.d.Commit, Applied: n.applied, LogLength: len(n.d.Log), LastIndex: n.last(), SnapshotIndex: n.d.BaseIndex, ElectionCount: n.elections, RPCCount: n.rpcs, Lag: lag}
+	s := Status{StateHash: fmt.Sprintf("%x", sha256.Sum256(n.m.Snapshot())), ID: n.cfg.ID, Role: n.role, Term: n.d.Term, Leader: n.leader, Commit: n.d.Commit, Applied: n.applied, LogLength: len(n.d.Log), LastIndex: n.last(), SnapshotIndex: n.d.BaseIndex, ElectionCount: n.elections, RPCCount: n.rpcs, Lag: lag}
 	if n.fatal != nil {
 		s.Error = n.fatal.Error()
 	}

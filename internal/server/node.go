@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"raftkv/internal/metrics"
 	"raftkv/internal/raft"
 	"raftkv/internal/statemachine"
 	"raftkv/internal/storage"
@@ -71,7 +72,7 @@ func Launch(c Config) (*Runtime, error) {
 	}
 	sort.Strings(ids)
 	t := transport.NewHTTP(c.Peers)
-	n, e := raft.New(raft.Config{ID: c.NodeID, Peers: ids, Seed: time.Now().UnixNano(), SnapshotThreshold: c.SnapshotThreshold}, wal, t)
+	n, e := raft.New(raft.Config{Logger: slog.Default(), ID: c.NodeID, Peers: ids, Seed: time.Now().UnixNano(), SnapshotThreshold: c.SnapshotThreshold}, wal, t)
 	if e != nil {
 		_ = wal.Close()
 		return nil, e
@@ -89,8 +90,14 @@ func Launch(c Config) (*Runtime, error) {
 	}
 	rt := &Runtime{Node: n, cfg: c, wal: wal, listener: l, transport: t}
 	rt.client = New(rt)
+	stats := metrics.New()
+	rt.client.Stats = stats
 	mux := http.NewServeMux()
 	transport.Register(mux, n)
+	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+		stats.Write(w, n.Status())
+	})
 	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(n.Status())

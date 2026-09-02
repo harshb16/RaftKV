@@ -1,6 +1,7 @@
 package history
 
 import (
+	"fmt"
 	"github.com/anishathalye/porcupine"
 	"raftkv/internal/statemachine"
 	"testing"
@@ -32,5 +33,13 @@ func TestCheckerDetectsDuplicateIncrement(t *testing.T) {
 	r, e := Check(rs, time.Second)
 	if e != nil || r != porcupine.Illegal {
 		t.Fatal(r, e)
+	}
+}
+func TestStoppedPendingRequestIsUnknown(t *testing.T) {
+	r := New()
+	r.Add(0, statemachine.Command{Args: []string{"INCR", "x"}}, r.Now(), statemachine.Result{}, fmt.Errorf("CLUSTERDOWN node stopped"))
+	records := r.Records()
+	if !records[0].Output.Unknown || records[0].Output.Rejected {
+		t.Fatal(records)
 	}
 }

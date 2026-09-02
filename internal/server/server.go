@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"raftkv/internal/metrics"
 	"raftkv/internal/resp"
 	"raftkv/internal/statemachine"
 	"strings"
@@ -16,6 +17,7 @@ type Executor interface {
 	Execute(context.Context, statemachine.Command) (statemachine.Result, error)
 }
 type Server struct {
+	Stats  *metrics.Registry
 	exec   Executor
 	mu     sync.Mutex
 	conns  map[net.Conn]bool
@@ -66,6 +68,7 @@ func (s *Server) serve(c net.Conn) {
 			}
 			return
 		}
+		started := time.Now()
 		result := statemachine.Result{}
 		a := cmd.Args
 		if len(a) > 0 && strings.EqualFold(a[0], "PING") {
@@ -83,6 +86,9 @@ func (s *Server) serve(c net.Conn) {
 			if e != nil {
 				result = statemachine.Error(e.Error())
 			}
+		}
+		if s.Stats != nil {
+			s.Stats.Observe(time.Since(started), result.Kind == "error")
 		}
 		_ = c.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		if resp.Write(w, result) != nil || w.Flush() != nil {
