@@ -55,3 +55,39 @@ func TestDurableVoteAndEntries(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestUncommittedTailNotAppliedAfterCrash(t *testing.T) {
+	d := t.TempDir()
+	s, e := storage.Open(d)
+	if e != nil {
+		t.Fatal(e)
+	}
+	cfg := Config{ID: "a", Peers: []string{"a", "b", "c"}}
+	n, e := New(cfg, s, nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	r := n.AppendEntries(AppendRequest{Term: 1, Leader: "b", Entries: []Entry{{Index: 1, Term: 1, Command: statemachine.Command{Args: []string{"SET", "x", "uncommitted"}}}}})
+	if !r.Success {
+		t.Fatal(r)
+	}
+	n.Stop()
+	_ = s.Close()
+	s, e = storage.Open(d)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer s.Close()
+	n, e = New(cfg, s, nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer n.Stop()
+	if n.Status().LastIndex != 1 || n.Status().Commit != 0 || len(n.State()) != 0 {
+		t.Fatal(n.Status(), n.State())
+	}
+	r = n.AppendEntries(AppendRequest{Term: 2, Leader: "c", Entries: []Entry{{Index: 1, Term: 2, Command: statemachine.Command{Args: []string{"SET", "x", "replacement"}}}}, Commit: 1})
+	if !r.Success || n.State()["x"] != "replacement" {
+		t.Fatal(r, n.State())
+	}
+}

@@ -16,7 +16,7 @@ import (
 
 const maxRecord = 256 << 20
 
-var magic = [4]byte{'R', 'K', 'V', '1'}
+var magic = [4]byte{'R', 'K', 'V', '2'}
 
 type WAL struct {
 	mu     sync.Mutex
@@ -58,7 +58,7 @@ func Open(dir string) (*WAL, error) {
 func (w *WAL) recover() error {
 	var offset int64
 	for {
-		h := make([]byte, 12)
+		h := make([]byte, 16)
 		n, e := io.ReadFull(w.f, h)
 		if e == io.EOF && n == 0 {
 			break
@@ -68,6 +68,9 @@ func (w *WAL) recover() error {
 		}
 		if e != nil {
 			return e
+		}
+		if crc32.ChecksumIEEE(h[:12]) != binary.BigEndian.Uint32(h[12:16]) {
+			return fmt.Errorf("WAL header checksum mismatch at %d", offset)
 		}
 		if string(h[:4]) != string(magic[:]) {
 			return fmt.Errorf("WAL bad magic at %d", offset)
@@ -84,11 +87,11 @@ func (w *WAL) recover() error {
 		if e != nil {
 			return e
 		}
-		if crc32.ChecksumIEEE(b) != binary.BigEndian.Uint32(h[8:]) {
+		if crc32.ChecksumIEEE(b) != binary.BigEndian.Uint32(h[8:12]) {
 			return fmt.Errorf("WAL checksum mismatch at %d", offset)
 		}
 		w.last = b
-		offset += 12 + int64(size)
+		offset += 16 + int64(size)
 	}
 	_, e := w.f.Seek(0, io.SeekEnd)
 	return e
@@ -107,11 +110,12 @@ func record(b []byte) ([]byte, error) {
 	if len(b) > maxRecord {
 		return nil, fmt.Errorf("WAL checkpoint exceeds %d bytes", maxRecord)
 	}
-	h := make([]byte, 12+len(b))
+	h := make([]byte, 16+len(b))
 	copy(h, magic[:])
 	binary.BigEndian.PutUint32(h[4:8], uint32(len(b)))
 	binary.BigEndian.PutUint32(h[8:12], crc32.ChecksumIEEE(b))
-	copy(h[12:], b)
+	binary.BigEndian.PutUint32(h[12:16], crc32.ChecksumIEEE(h[:12]))
+	copy(h[16:], b)
 	return h, nil
 }
 func writeSync(f *os.File, b []byte) error {

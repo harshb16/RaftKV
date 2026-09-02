@@ -25,7 +25,7 @@ func TestRecoveryTailAndCompaction(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	_, _ = f.Write([]byte("RKV1\x00"))
+	_, _ = f.Write([]byte("RKV2\x00"))
 	_ = f.Close()
 	w, e = Open(d)
 	if e != nil {
@@ -89,6 +89,33 @@ func TestEveryTornPayloadPrefix(t *testing.T) {
 		_ = w.Close()
 		if string(b) != "safe" {
 			t.Fatal(cut, string(b))
+		}
+	}
+}
+
+func TestHeaderCorruptionCannotMasqueradeAsTornTail(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		d := t.TempDir()
+		w, e := Open(d)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = w.Save([]byte("acknowledged")); e != nil {
+			t.Fatal(e)
+		}
+		_ = w.Close()
+		p := filepath.Join(d, "raft.wal")
+		b, e := os.ReadFile(p)
+		if e != nil {
+			t.Fatal(e)
+		}
+		b[i] ^= 1
+		if e = os.WriteFile(p, b, 0600); e != nil {
+			t.Fatal(e)
+		}
+		if w, e = Open(d); e == nil {
+			_ = w.Close()
+			t.Fatalf("accepted corrupted header byte %d", i)
 		}
 	}
 }
