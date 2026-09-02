@@ -94,3 +94,58 @@ func TestStorageFailureNeverAcknowledgesVote(t *testing.T) {
 		t.Fatal(r, n.Status())
 	}
 }
+
+func TestCompactedFollowerConflictHintCanMoveForward(t *testing.T) {
+	w := &wire{nodes: map[string]*Node{}, blocked: map[string]bool{}}
+	empty := statemachine.New().Snapshot()
+	ld := Durable{Term: 3, BaseIndex: 128, BaseTerm: 1, Snapshot: empty, Commit: 200}
+	for i := uint64(129); i <= 250; i++ {
+		term := uint64(1)
+		if i > 200 {
+			term = 2
+		}
+		ld.Log = append(ld.Log, Entry{Index: i, Term: term})
+	}
+	fd := Durable{Term: 3, BaseIndex: 200, BaseTerm: 1, Snapshot: empty, Commit: 200}
+	for i := uint64(201); i <= 240; i++ {
+		fd.Log = append(fd.Log, Entry{Index: i, Term: 1})
+	}
+	ls, fs := &MemoryStore{}, &MemoryStore{}
+	_ = ls.Save(encode(ld))
+	_ = fs.Save(encode(fd))
+	cfg := Config{ID: "a", Peers: []string{"a", "b", "c"}}
+	l, e := New(cfg, ls, w)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer l.Stop()
+	cfg.ID = "b"
+	f, e := New(cfg, fs, w)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer f.Stop()
+	w.nodes["a"] = l
+	w.nodes["b"] = f
+	l.mu.Lock()
+	l.role = "leader"
+	l.next["b"] = 241
+	l.mu.Unlock()
+	l.replicate("b")
+	l.replicate("b")
+	l.mu.Lock()
+	next := l.next["b"]
+	l.mu.Unlock()
+	if next != 201 {
+		t.Fatalf("expected forward snapshot hint 201, got %d", next)
+	}
+	l.replicate("b")
+	if f.Status().LastIndex != 250 {
+		t.Fatal(f.Status())
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.term(201) != 2 {
+		t.Fatal("conflicting tail not repaired")
+	}
+}

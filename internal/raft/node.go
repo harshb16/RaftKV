@@ -481,7 +481,8 @@ func (n *Node) replicate(peer string) {
 			}
 		}
 	} else {
-		if r.Next < next {
+		if r.Next > 0 && r.Next <= n.last()+1 && r.Next != next {
+			// A compacted follower may hint forward past its snapshot boundary.
 			n.next[peer] = r.Next
 		} else if next > 1 {
 			n.next[peer] = next - 1
