@@ -401,6 +401,7 @@ func (n *Node) apply() {
 			delete(n.pending, n.applied)
 		}
 	}
+	n.maybeSnapshot()
 }
 func (n *Node) replicator(peer string, wake <-chan struct{}) {
 	defer n.wg.Done()
@@ -423,6 +424,10 @@ func (n *Node) replicate(peer string) {
 		return
 	}
 	term := n.d.Term
+	if n.next[peer] <= n.d.BaseIndex {
+		n.replicateSnapshot(peer, term)
+		return
+	}
 	next := n.next[peer]
 	if next == 0 {
 		next = 1
@@ -541,9 +546,4 @@ func (n *Node) State() map[string]string {
 		d[k] = v
 	}
 	return d
-}
-
-// Snapshot support is added independently of the election/replication core.
-func (n *Node) InstallSnapshot(r SnapshotRequest) SnapshotResponse {
-	return SnapshotResponse{Term: n.Status().Term}
 }
