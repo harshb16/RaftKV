@@ -4,6 +4,7 @@ package statemachine
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -119,22 +120,55 @@ func (m *Machine) Apply(c Command) Result {
 	}
 	panic("validated command missing implementation")
 }
+
+// JSON strings cannot preserve invalid UTF-8; byte slices use base64 on disk/RPC.
+func (c Command) MarshalJSON() ([]byte, error) {
+	a := make([][]byte, len(c.Args))
+	for i, s := range c.Args {
+		a[i] = []byte(s)
+	}
+	return json.Marshal(a)
+}
+func (c *Command) UnmarshalJSON(b []byte) error {
+	var a [][]byte
+	if e := json.Unmarshal(b, &a); e != nil {
+		return e
+	}
+	c.Args = make([]string, len(a))
+	for i, b := range a {
+		c.Args[i] = string(b)
+	}
+	return nil
+}
 func (m *Machine) Snapshot() []byte {
-	b, err := json.Marshal(m.Data)
-	if err != nil {
-		panic(err)
+	keys := make([]string, 0, len(m.Data))
+	for k := range m.Data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	pairs := make([][2][]byte, 0, len(keys))
+	for _, k := range keys {
+		pairs = append(pairs, [2][]byte{[]byte(k), []byte(m.Data[k])})
+	}
+	b, e := json.Marshal(pairs)
+	if e != nil {
+		panic(e)
 	}
 	return b
 }
 func (m *Machine) Restore(b []byte) error {
 	d := map[string]string{}
 	if len(b) > 0 {
-		if err := json.Unmarshal(b, &d); err != nil {
-			return err
+		var pairs [][2][]byte
+		if e := json.Unmarshal(b, &pairs); e != nil {
+			return e
 		}
-	}
-	if d == nil {
-		return fmt.Errorf("null snapshot")
+		if pairs == nil {
+			return fmt.Errorf("null snapshot")
+		}
+		for _, p := range pairs {
+			d[string(p[0])] = string(p[1])
+		}
 	}
 	m.Data = d
 	return nil
